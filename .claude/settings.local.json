@@ -21,7 +21,9 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix TypeScript errors for production build\n\n- Remove unused ChevronRight import in ClientsPage\n- Remove unused Card component imports in OverviewPage\n- Fix getModelClass parameter type to accept undefined\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push)",
       "Bash(git commit:*)",
-      "Bash(npx gh-pages -d dist)"
+      "Bash(npx gh-pages -d dist)",
+      "Bash(node -e:*)",
+      "Bash(node create-data.js:*)"
     ]
   }
 }
