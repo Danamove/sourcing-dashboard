@@ -1,0 +1,42 @@
+{
+  "name": "sourcing-dashboard-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Sourcing Projects Dashboard",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc && npm run copy-migrations",
+    "copy-migrations": "cp -r src/db/migrations dist/db/ && cp -r src/db/seeds dist/db/",
+    "start": "node dist/index.js",
+    "start:prod": "npm run migrate:prod && npm run seed:prod && node dist/index.js",
+    "migrate": "knex migrate:latest --knexfile src/db/knexfile.ts",
+    "migrate:prod": "knex migrate:latest --knexfile dist/db/knexfile.js",
+    "migrate:rollback": "knex migrate:rollback --knexfile src/db/knexfile.ts",
+    "seed": "knex seed:run --knexfile src/db/knexfile.ts",
+    "seed:prod": "knex seed:run --knexfile dist/db/knexfile.js || true"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "knex": "^3.1.0",
+    "pg": "^8.11.3",
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.5",
+    "@types/uuid": "^9.0.7",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

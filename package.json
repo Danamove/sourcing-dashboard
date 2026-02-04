@@ -1,0 +1,18 @@
+{
+  "name": "sourcing-projects-dashboard",
+  "version": "1.0.0",
+  "description": "Full-stack dashboard for managing sourcing team projects",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "build": "cd frontend && npm run build && cd ../backend && npm run build",
+    "start": "cd backend && npm run start:prod",
+    "postinstall": "npm run install:all"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
