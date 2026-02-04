@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, Building2, Search, Briefcase } from 'lucide-react';
+import { ChevronDown, Building2, Search, Briefcase } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { analyticsApi } from '@/api/analytics';

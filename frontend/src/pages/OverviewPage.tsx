@@ -8,7 +8,6 @@ import {
   TrendingUp,
   ArrowUpRight,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { analyticsApi } from '@/api/analytics';
@@ -71,7 +70,7 @@ export function OverviewPage() {
     },
   ];
 
-  const getModelClass = (model: string) => {
+  const getModelClass = (model: string | undefined) => {
     switch (model) {
       case 'Hourly':
         return 'badge-model hourly';
