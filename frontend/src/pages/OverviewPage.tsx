@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   Download,
   Upload,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +59,13 @@ export function OverviewPage() {
       }
     };
     input.click();
+  };
+
+  const handleReset = () => {
+    if (confirm('Reset to original data? This will replace all your changes with the default 23 projects.')) {
+      localStorage.removeItem('sourcing_dashboard_data');
+      window.location.reload();
+    }
   };
 
   const statCards = [
@@ -117,6 +125,14 @@ export function OverviewPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            className="gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </Button>
           <Button
             variant="outline"
             onClick={handleImport}
