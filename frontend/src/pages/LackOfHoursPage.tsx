@@ -1,22 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Clock, TrendingDown } from 'lucide-react';
-import { analyticsApi } from '@/api/analytics';
+import * as storage from '@/lib/storage';
 
 export function LackOfHoursPage() {
-  const { data: sourcersLacking, isLoading } = useQuery({
-    queryKey: ['analytics', 'lacking-hours'],
-    queryFn: () => analyticsApi.getSourcersLackingHours(200),
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  const totalMissing = sourcersLacking?.reduce((sum, s) => sum + s.missingHours, 0) || 0;
+  const sourcersLacking = storage.getSourcersLackingHours(200);
+  const totalMissing = sourcersLacking.reduce((sum, s) => sum + s.missingHours, 0);
 
   return (
     <div className="space-y-8 animate-fade-in-up">
@@ -41,7 +28,7 @@ export function LackOfHoursPage() {
       </div>
 
       {/* Summary Stats */}
-      {sourcersLacking && sourcersLacking.length > 0 && (
+      {sourcersLacking.length > 0 && (
         <div className="grid gap-5 md:grid-cols-3">
           <div className="stat-card rounded-xl p-6">
             <div className="flex items-center gap-4">
@@ -98,7 +85,7 @@ export function LackOfHoursPage() {
                   Avg Missing
                 </p>
                 <p className="text-3xl" style={{ fontFamily: 'var(--font-display)' }}>
-                  {Math.round(totalMissing / sourcersLacking.length)}h
+                  {Math.round(totalMissing / sourcersLacking.length) || 0}h
                 </p>
               </div>
             </div>
@@ -107,7 +94,7 @@ export function LackOfHoursPage() {
       )}
 
       {/* Sourcers Cards */}
-      {sourcersLacking && sourcersLacking.length > 0 ? (
+      {sourcersLacking.length > 0 ? (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 animate-stagger">
           {sourcersLacking.map((item) => {
             const percentage = (item.totalHours / 200) * 100;

@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
   Bar,
@@ -13,7 +12,7 @@ import {
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Download, BarChart3, PieChartIcon, Users } from 'lucide-react';
-import { analyticsApi } from '@/api/analytics';
+import * as storage from '@/lib/storage';
 
 const COLORS = [
   'hsl(32, 95%, 44%)',
@@ -24,36 +23,35 @@ const COLORS = [
 ];
 
 export function AnalyticsPage() {
-  const { data: byModel } = useQuery({
-    queryKey: ['analytics', 'by-model'],
-    queryFn: analyticsApi.getProjectsByModel,
-  });
+  const byModel = storage.getProjectsByModel();
+  const byGroup = storage.getProjectsByGroup();
+  const bySourcer = storage.getProjectsBySourcer();
+  const byStatus = storage.getProjectsByStatus();
 
-  const { data: byGroup } = useQuery({
-    queryKey: ['analytics', 'by-group'],
-    queryFn: analyticsApi.getProjectsByGroup,
-  });
+  const handleExport = () => {
+    const projects = storage.getProjects();
+    const csv = [
+      ['Company', 'Sourcer', 'Group', 'Model', 'Roles', 'Roles Count', 'Hours/Hires', 'Start Date', 'Status'].join(','),
+      ...projects.map(p => [
+        p.company,
+        p.sourcer,
+        p.group_type,
+        p.model_type,
+        p.roles || '',
+        p.roles_count || 0,
+        p.hours_or_hires || 0,
+        p.start_date || '',
+        p.status
+      ].join(','))
+    ].join('\n');
 
-  const { data: bySourcer } = useQuery({
-    queryKey: ['analytics', 'by-sourcer'],
-    queryFn: analyticsApi.getProjectsBySourcer,
-  });
-
-  const { data: byStatus } = useQuery({
-    queryKey: ['analytics', 'by-status'],
-    queryFn: analyticsApi.getProjectsByStatus,
-  });
-
-  const handleExport = async () => {
-    const blob = await analyticsApi.exportCSV();
-    const url = window.URL.createObjectURL(blob);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'projects_export.csv';
-    document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -118,21 +116,12 @@ export function AnalyticsPage() {
                   outerRadius={100}
                   innerRadius={40}
                   label={({ model, count }) => `${model}: ${count}`}
-                  labelLine={{ stroke: 'hsl(220, 15%, 60%)' }}
                 >
-                  {byModel?.map((_, index) => (
+                  {byModel.map((_, index) => (
                     <Cell key={index} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: 'hsl(220, 25%, 12%)',
-                    border: '1px solid hsl(220, 20%, 20%)',
-                    borderRadius: '0.75rem',
-                    color: 'hsl(40, 20%, 95%)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                />
+                <Tooltip />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -163,21 +152,12 @@ export function AnalyticsPage() {
                   outerRadius={100}
                   innerRadius={40}
                   label={({ group, count }) => `${group}: ${count}`}
-                  labelLine={{ stroke: 'hsl(220, 15%, 60%)' }}
                 >
-                  {byGroup?.map((_, index) => (
+                  {byGroup.map((_, index) => (
                     <Cell key={index} fill={index === 0 ? 'hsl(220, 70%, 50%)' : 'hsl(160, 60%, 40%)'} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: 'hsl(220, 25%, 12%)',
-                    border: '1px solid hsl(220, 20%, 20%)',
-                    borderRadius: '0.75rem',
-                    color: 'hsl(40, 20%, 95%)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                />
+                <Tooltip />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -196,29 +176,13 @@ export function AnalyticsPage() {
             </div>
             <h3 style={{ fontFamily: 'var(--font-display)' }}>Projects by Sourcer</h3>
           </div>
-          <div className="h-[400px]">
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={bySourcer} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 20%, 90%)" />
-                <XAxis
-                  type="number"
-                  tick={{ fill: 'hsl(220, 15%, 45%)', fontFamily: 'var(--font-body)', fontSize: 12 }}
-                />
-                <YAxis
-                  dataKey="sourcer"
-                  type="category"
-                  width={120}
-                  tick={{ fill: 'hsl(220, 15%, 45%)', fontFamily: 'var(--font-body)', fontSize: 12 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'hsl(220, 25%, 12%)',
-                    border: '1px solid hsl(220, 20%, 20%)',
-                    borderRadius: '0.75rem',
-                    color: 'hsl(40, 20%, 95%)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                />
+                <XAxis type="number" />
+                <YAxis dataKey="sourcer" type="category" width={100} />
+                <Tooltip />
                 <Bar dataKey="projects" fill="hsl(32, 95%, 44%)" name="Projects" radius={[0, 4, 4, 0]} />
                 <Bar dataKey="totalRoles" fill="hsl(220, 70%, 50%)" name="Total Roles" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -239,31 +203,15 @@ export function AnalyticsPage() {
             </div>
             <h3 style={{ fontFamily: 'var(--font-display)' }}>Projects by Status</h3>
           </div>
-          <div className="h-[300px]">
+          <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byStatus}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 20%, 90%)" />
-                <XAxis
-                  dataKey="status"
-                  tick={{ fill: 'hsl(220, 15%, 45%)', fontFamily: 'var(--font-body)', fontSize: 12 }}
-                />
-                <YAxis
-                  tick={{ fill: 'hsl(220, 15%, 45%)', fontFamily: 'var(--font-body)', fontSize: 12 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'hsl(220, 25%, 12%)',
-                    border: '1px solid hsl(220, 20%, 20%)',
-                    borderRadius: '0.75rem',
-                    color: 'hsl(40, 20%, 95%)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                />
-                <Bar
-                  dataKey="count"
-                  radius={[4, 4, 0, 0]}
-                >
-                  {byStatus?.map((entry, index) => (
+                <XAxis dataKey="status" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {byStatus.map((entry, index) => (
                     <Cell
                       key={index}
                       fill={

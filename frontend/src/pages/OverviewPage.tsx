@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   Briefcase,
   Users,
@@ -7,64 +6,88 @@ import {
   Plus,
   TrendingUp,
   ArrowUpRight,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { analyticsApi } from '@/api/analytics';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
 import { format } from 'date-fns';
+import * as storage from '@/lib/storage';
 
 export function OverviewPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data: stats } = useQuery({
-    queryKey: ['analytics', 'overview'],
-    queryFn: analyticsApi.getOverviewStats,
-  });
+  const stats = storage.getOverviewStats();
+  const recentProjects = storage.getRecentProjects(5);
+  const byModel = storage.getProjectsByModel();
+  const byGroup = storage.getProjectsByGroup();
 
-  const { data: recentProjects } = useQuery({
-    queryKey: ['analytics', 'recent'],
-    queryFn: () => analyticsApi.getRecentProjects(5),
-  });
+  const refresh = () => setRefreshKey((k) => k + 1);
 
-  const { data: byModel } = useQuery({
-    queryKey: ['analytics', 'by-model'],
-    queryFn: analyticsApi.getProjectsByModel,
-  });
+  const handleExport = () => {
+    const data = storage.exportData();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sourcing-dashboard-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-  const { data: byGroup } = useQuery({
-    queryKey: ['analytics', 'by-group'],
-    queryFn: analyticsApi.getProjectsByGroup,
-  });
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          if (storage.importData(content)) {
+            refresh();
+            alert('Data imported successfully!');
+          } else {
+            alert('Failed to import data. Check the file format.');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
 
   const statCards = [
     {
       title: 'Total Projects',
-      value: stats?.totalProjects || 0,
+      value: stats.totalProjects,
       icon: Briefcase,
       gradient: 'from-blue-500 to-blue-600',
     },
     {
       title: 'Active Projects',
-      value: stats?.activeProjects || 0,
+      value: stats.activeProjects,
       icon: TrendingUp,
       gradient: 'from-emerald-500 to-emerald-600',
     },
     {
       title: 'Total Clients',
-      value: stats?.totalCompanies || 0,
+      value: stats.totalCompanies,
       icon: Building2,
       gradient: 'from-violet-500 to-violet-600',
     },
     {
       title: 'Team Members',
-      value: stats?.totalSourcers || 0,
+      value: stats.totalSourcers,
       icon: Users,
       gradient: 'from-amber-500 to-amber-600',
     },
     {
       title: 'Total Roles',
-      value: stats?.totalRoles || 0,
+      value: stats.totalRoles,
       icon: Briefcase,
       gradient: 'from-rose-500 to-rose-600',
     },
@@ -84,7 +107,7 @@ export function OverviewPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
+    <div key={refreshKey} className="space-y-8 animate-fade-in-up">
       {/* Page Header */}
       <div className="page-header flex items-end justify-between">
         <div>
@@ -93,18 +116,36 @@ export function OverviewPage() {
             Welcome back. Here's what's happening with your projects.
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          className="gap-2"
-          style={{
-            background: 'linear-gradient(135deg, hsl(32 95% 44%) 0%, hsl(32 80% 38%) 100%)',
-            boxShadow: '0 4px 12px hsl(32 95% 40% / 0.25)',
-            border: 'none',
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          New Project
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleImport}
+            className="gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="gap-2"
+            style={{
+              background: 'linear-gradient(135deg, hsl(32 95% 44%) 0%, hsl(32 80% 38%) 100%)',
+              boxShadow: '0 4px 12px hsl(32 95% 40% / 0.25)',
+              border: 'none',
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            New Project
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -144,7 +185,7 @@ export function OverviewPage() {
             Projects by Model
           </h3>
           <div className="space-y-4">
-            {byModel?.map((item) => {
+            {byModel.map((item) => {
               const total = byModel.reduce((sum, i) => sum + i.count, 0);
               const percentage = total > 0 ? (item.count / total) * 100 : 0;
               return (
@@ -175,7 +216,7 @@ export function OverviewPage() {
             Projects by Group
           </h3>
           <div className="space-y-4">
-            {byGroup?.map((item) => {
+            {byGroup.map((item) => {
               const total = byGroup.reduce((sum, i) => sum + i.count, 0);
               const percentage = total > 0 ? (item.count / total) * 100 : 0;
               return (
@@ -227,7 +268,7 @@ export function OverviewPage() {
         <div className="flex items-center justify-between mb-6">
           <h3 style={{ fontFamily: 'var(--font-display)' }}>Recent Projects</h3>
           <a
-            href="/israel"
+            href="#/israel"
             className="text-sm font-medium flex items-center gap-1 transition-colors"
             style={{
               color: 'hsl(32 95% 44%)',
@@ -239,7 +280,7 @@ export function OverviewPage() {
           </a>
         </div>
         <div className="space-y-1">
-          {recentProjects?.map((project, index) => (
+          {recentProjects.map((project, index) => (
             <div
               key={project.id}
               className="flex items-center justify-between py-4 border-b border-border/50 last:border-0 group hover:bg-muted/30 -mx-2 px-2 rounded-lg transition-colors"
@@ -283,7 +324,7 @@ export function OverviewPage() {
               </div>
             </div>
           ))}
-          {(!recentProjects || recentProjects.length === 0) && (
+          {recentProjects.length === 0 && (
             <p className="text-center text-muted-foreground py-8">
               No projects yet. Create your first project to get started.
             </p>
@@ -294,6 +335,7 @@ export function OverviewPage() {
       <ProjectFormDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
+        onSuccess={refresh}
       />
     </div>
   );
