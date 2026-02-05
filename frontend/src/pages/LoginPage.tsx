@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuthStore } from '@/stores/auth';
+import { supabase } from '@/lib/supabase';
+import { Mail, CheckCircle } from 'lucide-react';
 
 const ALLOWED_DOMAIN = 'added-value.co.il';
 
@@ -18,17 +18,15 @@ const loginSchema = z.object({
       (email) => email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`),
       `Only @${ALLOWED_DOMAIN} emails are allowed`
     ),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const { login, signup } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignup, setIsSignup] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState('');
 
   const {
     register,
@@ -43,17 +41,21 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      const result = isSignup
-        ? await signup(data.email, data.password)
-        : await login(data.email, data.password);
+      const { error } = await supabase.auth.signInWithOtp({
+        email: data.email,
+        options: {
+          emailRedirectTo: window.location.origin + window.location.pathname,
+        },
+      });
 
-      if (result.error) {
-        setError(result.error);
+      if (error) {
+        setError(error.message);
       } else {
-        navigate('/');
+        setEmailSent(true);
+        setSentToEmail(data.email);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(err instanceof Error ? err.message : 'Failed to send login link');
     } finally {
       setIsLoading(false);
     }
@@ -118,113 +120,111 @@ export function LoginPage() {
             className="text-sm mt-2"
             style={{ color: 'hsl(220 15% 55%)' }}
           >
-            {isSignup ? 'Create your account' : 'Sign in to manage projects'}
+            Added Value Team Access
           </p>
         </div>
 
         {/* Form */}
         <div className="p-8">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            {error && (
+          {emailSent ? (
+            <div className="text-center py-4">
               <div
-                className="rounded-xl p-4 text-sm"
-                style={{
-                  background: 'linear-gradient(135deg, hsl(0 80% 97%) 0%, hsl(0 60% 95%) 100%)',
-                  border: '1px solid hsl(0 60% 85%)',
-                  color: 'hsl(0 70% 40%)',
-                }}
+                className="h-16 w-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, hsl(145 60% 45%) 0%, hsl(145 50% 40%) 100%)' }}
               >
-                {error}
+                <CheckCircle className="h-8 w-8 text-white" />
               </div>
-            )}
-
-            <div
-              className="rounded-xl p-3 text-xs text-center"
-              style={{
-                background: 'linear-gradient(135deg, hsl(220 60% 97%) 0%, hsl(220 40% 95%) 100%)',
-                border: '1px solid hsl(220 40% 85%)',
-                color: 'hsl(220 50% 40%)',
-              }}
-            >
-              Access restricted to @{ALLOWED_DOMAIN} emails
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="email"
-                className="text-xs font-medium uppercase tracking-wider"
-                style={{ color: 'hsl(220 15% 45%)' }}
+              <h2 className="text-xl font-semibold mb-2" style={{ color: 'hsl(220 25% 20%)' }}>
+                Check your email
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                We sent a login link to:
+              </p>
+              <p className="font-medium" style={{ color: 'hsl(32 95% 44%)' }}>
+                {sentToEmail}
+              </p>
+              <p className="text-xs text-muted-foreground mt-4">
+                Click the link in the email to sign in
+              </p>
+              <Button
+                variant="outline"
+                className="mt-6"
+                onClick={() => { setEmailSent(false); setSentToEmail(''); }}
               >
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={`you@${ALLOWED_DOMAIN}`}
-                {...register('email')}
-                className="h-12 rounded-xl border-2 transition-all duration-200"
-                style={{
-                  borderColor: errors.email ? 'hsl(0 70% 50%)' : 'hsl(220 20% 90%)',
-                  background: 'hsl(40 20% 99%)',
-                }}
-              />
-              {errors.email && (
-                <p className="text-xs" style={{ color: 'hsl(0 70% 50%)' }}>
-                  {errors.email.message}
-                </p>
+                Use a different email
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              {error && (
+                <div
+                  className="rounded-xl p-4 text-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(0 80% 97%) 0%, hsl(0 60% 95%) 100%)',
+                    border: '1px solid hsl(0 60% 85%)',
+                    color: 'hsl(0 70% 40%)',
+                  }}
+                >
+                  {error}
+                </div>
               )}
-            </div>
 
-            <div className="space-y-2">
-              <Label
-                htmlFor="password"
-                className="text-xs font-medium uppercase tracking-wider"
-                style={{ color: 'hsl(220 15% 45%)' }}
-              >
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-                className="h-12 rounded-xl border-2 transition-all duration-200"
+              <div
+                className="rounded-xl p-3 text-xs text-center"
                 style={{
-                  borderColor: errors.password ? 'hsl(0 70% 50%)' : 'hsl(220 20% 90%)',
-                  background: 'hsl(40 20% 99%)',
+                  background: 'linear-gradient(135deg, hsl(220 60% 97%) 0%, hsl(220 40% 95%) 100%)',
+                  border: '1px solid hsl(220 40% 85%)',
+                  color: 'hsl(220 50% 40%)',
                 }}
-              />
-              {errors.password && (
-                <p className="text-xs" style={{ color: 'hsl(0 70% 50%)' }}>
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full h-12 rounded-xl text-base font-medium transition-all duration-200"
-              disabled={isLoading}
-              style={{
-                background: 'linear-gradient(135deg, hsl(32 95% 44%) 0%, hsl(32 80% 38%) 100%)',
-                boxShadow: isLoading ? 'none' : '0 4px 16px hsl(32 95% 40% / 0.35)',
-                border: 'none',
-              }}
-            >
-              {isLoading ? (isSignup ? 'Creating account...' : 'Signing in...') : (isSignup ? 'Sign Up' : 'Sign In')}
-            </Button>
-
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => { setIsSignup(!isSignup); setError(null); }}
-                className="text-sm hover:underline"
-                style={{ color: 'hsl(32 95% 44%)' }}
               >
-                {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-              </button>
-            </div>
-          </form>
+                Access for @{ALLOWED_DOMAIN} team members only
+              </div>
+
+              <div className="space-y-2">
+                <Label
+                  htmlFor="email"
+                  className="text-xs font-medium uppercase tracking-wider"
+                  style={{ color: 'hsl(220 15% 45%)' }}
+                >
+                  Work Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder={`your.name@${ALLOWED_DOMAIN}`}
+                  {...register('email')}
+                  className="h-12 rounded-xl border-2 transition-all duration-200"
+                  style={{
+                    borderColor: errors.email ? 'hsl(0 70% 50%)' : 'hsl(220 20% 90%)',
+                    background: 'hsl(40 20% 99%)',
+                  }}
+                />
+                {errors.email && (
+                  <p className="text-xs" style={{ color: 'hsl(0 70% 50%)' }}>
+                    {errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-12 rounded-xl text-base font-medium transition-all duration-200 gap-2"
+                disabled={isLoading}
+                style={{
+                  background: 'linear-gradient(135deg, hsl(32 95% 44%) 0%, hsl(32 80% 38%) 100%)',
+                  boxShadow: isLoading ? 'none' : '0 4px 16px hsl(32 95% 40% / 0.35)',
+                  border: 'none',
+                }}
+              >
+                <Mail className="h-4 w-4" />
+                {isLoading ? 'Sending...' : 'Send Login Link'}
+              </Button>
+
+              <p className="text-xs text-center text-muted-foreground pt-2">
+                We'll email you a magic link to sign in instantly
+              </p>
+            </form>
+          )}
         </div>
       </div>
     </div>
