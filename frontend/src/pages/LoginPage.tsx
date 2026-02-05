@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { authApi } from '@/api/auth';
 import { useAuthStore } from '@/stores/auth';
 
 const loginSchema = z.object({
@@ -18,9 +17,10 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { login, signup } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignup, setIsSignup] = useState(false);
 
   const {
     register,
@@ -35,11 +35,17 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await authApi.login(data.email, data.password);
-      login(response.user, response.accessToken, response.refreshToken);
-      navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+      const result = isSignup
+        ? await signup(data.email, data.password)
+        : await login(data.email, data.password);
+
+      if (result.error) {
+        setError(result.error);
+      } else {
+        navigate('/');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +110,7 @@ export function LoginPage() {
             className="text-sm mt-2"
             style={{ color: 'hsl(220 15% 55%)' }}
           >
-            Sign in to manage your projects
+            {isSignup ? 'Create your account' : 'Sign in to manage your projects'}
           </p>
         </div>
 
@@ -135,7 +141,7 @@ export function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@example.com"
+                placeholder="you@example.com"
                 {...register('email')}
                 className="h-12 rounded-xl border-2 transition-all duration-200"
                 style={{
@@ -186,14 +192,43 @@ export function LoginPage() {
                 border: 'none',
               }}
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? (isSignup ? 'Creating account...' : 'Signing in...') : (isSignup ? 'Sign Up' : 'Sign In')}
             </Button>
 
-            <p
-              className="text-center text-xs pt-2"
-              style={{ color: 'hsl(220 15% 55%)' }}
+            <div className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => { setIsSignup(!isSignup); setError(null); }}
+                className="text-sm hover:underline"
+                style={{ color: 'hsl(32 95% 44%)' }}
+              >
+                {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              </button>
+            </div>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" style={{ borderColor: 'hsl(220 20% 90%)' }} />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="px-2" style={{ background: 'white', color: 'hsl(220 15% 55%)' }}>or</span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-12 rounded-xl text-base font-medium"
+              onClick={() => {
+                // Skip auth and go directly to dashboard
+                useAuthStore.getState().setUser({ id: 'guest', email: 'guest@local', name: 'Guest' });
+                navigate('/');
+              }}
             >
-              Demo credentials: admin@example.com / admin123
+              Continue without login
+            </Button>
+            <p className="text-center text-xs mt-2" style={{ color: 'hsl(220 15% 55%)' }}>
+              Data will still sync with cloud for all users
             </p>
           </form>
         </div>

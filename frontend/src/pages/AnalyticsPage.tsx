@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -11,8 +12,8 @@ import {
   Cell,
 } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Download, BarChart3, PieChartIcon, Users } from 'lucide-react';
-import * as storage from '@/lib/storage';
+import { Download, BarChart3, PieChartIcon, Users, Loader2 } from 'lucide-react';
+import { useData } from '@/contexts/DataContext';
 
 const COLORS = [
   'hsl(32, 95%, 44%)',
@@ -23,13 +24,35 @@ const COLORS = [
 ];
 
 export function AnalyticsPage() {
-  const byModel = storage.getProjectsByModel();
-  const byGroup = storage.getProjectsByGroup();
-  const bySourcer = storage.getProjectsBySourcer();
-  const byStatus = storage.getProjectsByStatus();
+  const { getProjectsByModel, getProjectsByGroup, getProjectsBySourcer, getProjectsByStatus, getProjects } = useData();
 
-  const handleExport = () => {
-    const projects = storage.getProjects();
+  const [byModel, setByModel] = useState<{ model: string; count: number }[]>([]);
+  const [byGroup, setByGroup] = useState<{ group: string; count: number }[]>([]);
+  const [bySourcer, setBySourcer] = useState<{ sourcer: string; projects: number; totalRoles: number }[]>([]);
+  const [byStatus, setByStatus] = useState<{ status: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    setLoading(true);
+    const [model, group, sourcer, status] = await Promise.all([
+      getProjectsByModel(),
+      getProjectsByGroup(),
+      getProjectsBySourcer(),
+      getProjectsByStatus(),
+    ]);
+    setByModel(model);
+    setByGroup(group);
+    setBySourcer(sourcer);
+    setByStatus(status);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleExport = async () => {
+    const projects = await getProjects();
     const csv = [
       ['Company', 'Sourcer', 'Group', 'Model', 'Roles', 'Roles Count', 'Hours/Hires', 'Start Date', 'Status'].join(','),
       ...projects.map(p => [
@@ -53,6 +76,14 @@ export function AnalyticsPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in-up">

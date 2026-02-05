@@ -1,9 +1,38 @@
-import { AlertTriangle, Clock, TrendingDown } from 'lucide-react';
-import * as storage from '@/lib/storage';
+import { useState, useEffect } from 'react';
+import { AlertTriangle, Clock, TrendingDown, Loader2 } from 'lucide-react';
+import { useData } from '@/contexts/DataContext';
+
+interface SourcerLacking {
+  sourcer: string;
+  totalHours: number;
+  missingHours: number;
+}
 
 export function LackOfHoursPage() {
-  const sourcersLacking = storage.getSourcersLackingHours(200);
+  const { getSourcersLackingHours } = useData();
+  const [sourcersLacking, setSourcersLacking] = useState<SourcerLacking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    setLoading(true);
+    const data = await getSourcersLackingHours(200);
+    setSourcersLacking(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const totalMissing = sourcersLacking.reduce((sum, s) => sum + s.missingHours, 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in-up">

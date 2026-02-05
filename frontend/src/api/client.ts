@@ -8,44 +8,23 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token from Supabase session
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const session = useAuthStore.getState().session;
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
   }
   return config;
 });
 
-// Response interceptor to handle token refresh
+// Response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      const refreshToken = useAuthStore.getState().refreshToken;
-      if (refreshToken) {
-        try {
-          const response = await axios.post('/api/auth/refresh', {
-            refreshToken,
-          });
-
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
-          useAuthStore.getState().setTokens(accessToken, newRefreshToken);
-
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
-        } catch (refreshError) {
-          useAuthStore.getState().logout();
-          window.location.href = '/login';
-          return Promise.reject(refreshError);
-        }
-      }
+    if (error.response?.status === 401) {
+      useAuthStore.getState().logout();
+      window.location.href = '/#/login';
     }
-
     return Promise.reject(error);
   }
 );

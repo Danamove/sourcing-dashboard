@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Briefcase,
   Users,
@@ -8,27 +8,54 @@ import {
   ArrowUpRight,
   Download,
   Upload,
-  RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
 import { format } from 'date-fns';
-import * as storage from '@/lib/storage';
+import { useData } from '@/contexts/DataContext';
+import { Project } from '@/types';
+
+interface OverviewStats {
+  totalProjects: number;
+  activeProjects: number;
+  totalCompanies: number;
+  totalSourcers: number;
+  totalRoles: number;
+}
 
 export function OverviewPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { refresh, getOverviewStats, getRecentProjects, getProjectsByModel, getProjectsByGroup, exportData, importData, error: dataError } = useData();
 
-  const stats = storage.getOverviewStats();
-  const recentProjects = storage.getRecentProjects(5);
-  const byModel = storage.getProjectsByModel();
-  const byGroup = storage.getProjectsByGroup();
+  const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [byModel, setByModel] = useState<{ model: string; count: number }[]>([]);
+  const [byGroup, setByGroup] = useState<{ group: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const refresh = () => setRefreshKey((k) => k + 1);
+  const loadData = async () => {
+    setLoading(true);
+    const [statsData, recent, model, group] = await Promise.all([
+      getOverviewStats(),
+      getRecentProjects(5),
+      getProjectsByModel(),
+      getProjectsByGroup(),
+    ]);
+    setStats(statsData);
+    setRecentProjects(recent);
+    setByModel(model);
+    setByGroup(group);
+    setLoading(false);
+  };
 
-  const handleExport = () => {
-    const data = storage.exportData();
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleExport = async () => {
+    const data = await exportData();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -42,14 +69,15 @@ export function OverviewPage() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           const content = e.target?.result as string;
-          if (storage.importData(content)) {
-            refresh();
+          if (await importData(content)) {
+            await refresh();
+            await loadData();
             alert('Data imported successfully!');
           } else {
             alert('Failed to import data. Check the file format.');
@@ -61,14 +89,12 @@ export function OverviewPage() {
     input.click();
   };
 
-  const handleReset = () => {
-    if (confirm('Reset to original data? This will replace all your changes with the default 23 projects.')) {
-      localStorage.removeItem('sourcing_dashboard_data');
-      window.location.reload();
-    }
+  const handleSuccess = async () => {
+    await refresh();
+    await loadData();
   };
 
-  const statCards = [
+  const statCards = stats ? [
     {
       title: 'Total Projects',
       value: stats.totalProjects,
@@ -99,7 +125,7 @@ export function OverviewPage() {
       icon: Briefcase,
       gradient: 'from-rose-500 to-rose-600',
     },
-  ];
+  ] : [];
 
   const getModelClass = (model: string | undefined) => {
     switch (model) {
@@ -114,8 +140,28 @@ export function OverviewPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (dataError) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center p-8 rounded-xl max-w-lg" style={{ background: 'hsl(0 80% 97%)', border: '1px solid hsl(0 60% 85%)' }}>
+          <h2 className="text-xl font-semibold mb-2" style={{ color: 'hsl(0 70% 40%)' }}>Connection Error</h2>
+          <p className="text-sm mb-4" style={{ color: 'hsl(0 50% 35%)' }}>{dataError}</p>
+          <p className="text-xs text-muted-foreground">The Supabase table may not exist or RLS is blocking access. Check the browser console (F12) for details.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div key={refreshKey} className="space-y-8 animate-fade-in-up">
+    <div className="space-y-8 animate-fade-in-up">
       {/* Page Header */}
       <div className="page-header flex items-end justify-between">
         <div>
@@ -125,14 +171,6 @@ export function OverviewPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleReset}
-            className="gap-2"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset
-          </Button>
           <Button
             variant="outline"
             onClick={handleImport}
@@ -351,7 +389,7 @@ export function OverviewPage() {
       <ProjectFormDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        onSuccess={refresh}
+        onSuccess={handleSuccess}
       />
     </div>
   );

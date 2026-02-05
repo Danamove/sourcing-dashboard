@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Plus, MapPin, Globe, Archive } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, MapPin, Globe, Archive, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import * as storage from '@/lib/storage';
-import { GroupType, ProjectStatus } from '@/types';
+import { useData } from '@/contexts/DataContext';
+import { GroupType, ProjectStatus, Project } from '@/types';
 
 interface ProjectsPageProps {
   title: string;
@@ -17,26 +17,47 @@ interface ProjectsPageProps {
 
 export function ProjectsPage({ title, description, defaultGroupType, defaultStatus }: ProjectsPageProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [editingProject, setEditingProject] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filters: any = {};
-  if (defaultGroupType) filters.group_type = defaultGroupType;
-  if (defaultStatus) filters.status = defaultStatus;
+  const { getProjects, deleteProject, archiveProject, restoreProject, refresh } = useData();
 
-  const projects = storage.getProjects(filters);
-  const refresh = () => setRefreshKey(k => k + 1);
+  const loadData = async () => {
+    setLoading(true);
+    const filters: Record<string, string> = {};
+    if (defaultGroupType) filters.group_type = defaultGroupType;
+    if (defaultStatus) filters.status = defaultStatus;
 
-  const handleDelete = (id: string) => {
+    const data = await getProjects(filters);
+    setProjectsList(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [defaultGroupType, defaultStatus]);
+
+  const handleDelete = async (id: string) => {
     if (confirm('Delete this project?')) {
-      storage.deleteProject(id);
-      refresh();
+      await deleteProject(id);
+      await loadData();
     }
   };
 
-  const handleArchive = (id: string) => {
-    storage.archiveProject(id);
-    refresh();
+  const handleArchive = async (id: string) => {
+    await archiveProject(id);
+    await loadData();
+  };
+
+  const handleRestore = async (id: string) => {
+    await restoreProject(id);
+    await loadData();
+  };
+
+  const handleSuccess = async () => {
+    await refresh();
+    await loadData();
   };
 
   const getIcon = () => {
@@ -47,8 +68,16 @@ export function ProjectsPage({ title, description, defaultGroupType, defaultStat
   };
   const Icon = getIcon();
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <div key={refreshKey} className="space-y-8 animate-fade-in-up">
+    <div className="space-y-8 animate-fade-in-up">
       <div className="page-header flex items-end justify-between">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -78,7 +107,7 @@ export function ProjectsPage({ title, description, defaultGroupType, defaultStat
             </tr>
           </thead>
           <tbody>
-            {projects.map((p) => (
+            {projectsList.map((p) => (
               <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
                 <td className="p-4 font-medium">{p.company}</td>
                 <td className="p-4">{p.sourcer}</td>
@@ -89,21 +118,25 @@ export function ProjectsPage({ title, description, defaultGroupType, defaultStat
                 <td className="p-4">
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setEditingProject(p)}>Edit</Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleArchive(p.id)}>Archive</Button>
+                    {defaultStatus === 'archived' ? (
+                      <Button size="sm" variant="ghost" onClick={() => handleRestore(p.id)}>Restore</Button>
+                    ) : (
+                      <Button size="sm" variant="ghost" onClick={() => handleArchive(p.id)}>Archive</Button>
+                    )}
                     <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleDelete(p.id)}>Delete</Button>
                   </div>
                 </td>
               </tr>
             ))}
-            {projects.length === 0 && (
+            {projectsList.length === 0 && (
               <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No projects found</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <ProjectFormDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} onSuccess={refresh} />
-      {editingProject && <ProjectFormDialog project={editingProject} open={!!editingProject} onOpenChange={(o) => !o && setEditingProject(null)} onSuccess={refresh} />}
+      <ProjectFormDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} onSuccess={handleSuccess} />
+      {editingProject && <ProjectFormDialog project={editingProject} open={!!editingProject} onOpenChange={(o) => !o && setEditingProject(null)} onSuccess={handleSuccess} />}
     </div>
   );
 }

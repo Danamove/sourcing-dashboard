@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Project, GroupType, ModelType } from '@/types';
-import * as storage from '@/lib/storage';
+import { useData } from '@/contexts/DataContext';
 
 interface ProjectFormDialogProps {
   project?: Project | null;
@@ -16,19 +17,29 @@ interface ProjectFormDialogProps {
 
 export function ProjectFormDialog({ project, open, onOpenChange, onSuccess }: ProjectFormDialogProps) {
   const isEditing = !!project;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createProject, updateProject } = useData();
+
   const { register, handleSubmit, setValue, watch, reset } = useForm({
     defaultValues: project || { group_type: 'Israel' as GroupType, model_type: 'Hourly' as ModelType, status: 'active', roles_count: 1 },
   });
 
-  const onSubmit = (data: any) => {
-    if (isEditing && project) {
-      storage.updateProject(project.id, data);
-    } else {
-      storage.createProject(data);
+  const onSubmit = async (data: Partial<Project>) => {
+    setIsSubmitting(true);
+    try {
+      if (isEditing && project) {
+        await updateProject(project.id, data);
+      } else {
+        await createProject(data);
+      }
+      reset();
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      console.error('Error saving project:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-    reset();
-    onOpenChange(false);
-    onSuccess?.();
   };
 
   return (
@@ -59,8 +70,10 @@ export function ProjectFormDialog({ project, open, onOpenChange, onSuccess }: Pr
             <div><Label>Start Date</Label><Input type="date" {...register('start_date')} /></div>
           </div>
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" style={{ background: 'linear-gradient(135deg, hsl(32 95% 44%) 0%, hsl(32 80% 38%) 100%)' }}>{isEditing ? 'Save' : 'Create'}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting} style={{ background: 'linear-gradient(135deg, hsl(32 95% 44%) 0%, hsl(32 80% 38%) 100%)' }}>
+              {isSubmitting ? 'Saving...' : (isEditing ? 'Save' : 'Create')}
+            </Button>
           </div>
         </form>
       </DialogContent>

@@ -1,26 +1,63 @@
-import { useState } from 'react';
-import { ChevronDown, Building2, Search, Briefcase } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronDown, Building2, Search, Briefcase, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
-import * as storage from '@/lib/storage';
+import { useData } from '@/contexts/DataContext';
+import { Project } from '@/types';
+
+interface ClientStat {
+  company: string;
+  projectCount: number;
+  totalRoles: number;
+  totalHours: number;
+  totalHires: number;
+}
 
 export function ClientsPage() {
   const [search, setSearch] = useState('');
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
+  const [clientStats, setClientStats] = useState<ClientStat[]>([]);
+  const [clientProjects, setClientProjects] = useState<Record<string, Project[]>>({});
+  const [loading, setLoading] = useState(true);
 
-  const clientStats = storage.getClientStats();
+  const { getClientStats, getProjects } = useData();
+
+  const loadData = async () => {
+    setLoading(true);
+    const stats = await getClientStats();
+    setClientStats(stats);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const filteredClients = clientStats.filter((client) =>
     client.company.toLowerCase().includes(search.toLowerCase())
   );
 
-  const toggleExpand = (company: string) => {
-    setExpandedClient(expandedClient === company ? null : company);
+  const toggleExpand = async (company: string) => {
+    if (expandedClient === company) {
+      setExpandedClient(null);
+    } else {
+      // Load projects for this client if not already loaded
+      if (!clientProjects[company]) {
+        const projects = await getProjects({ company });
+        setClientProjects(prev => ({ ...prev, [company]: projects }));
+      }
+      setExpandedClient(company);
+    }
   };
 
-  const getClientProjects = (company: string) => {
-    return storage.getProjects({ company });
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in-up">
@@ -77,14 +114,14 @@ export function ClientsPage() {
                 </div>
               </div>
             </div>
-            {expandedClient === client.company && (
+            {expandedClient === client.company && clientProjects[client.company] && (
               <div className="border-t px-5 py-4" style={{ borderColor: 'hsl(220 20% 92%)', background: 'linear-gradient(180deg, hsl(40 30% 98%) 0%, hsl(40 20% 97%) 100%)' }}>
                 <div className="flex items-center gap-2 mb-4">
                   <Briefcase className="h-4 w-4" style={{ color: 'hsl(32 95% 44%)' }} />
                   <h4 className="font-medium text-sm uppercase tracking-wider" style={{ color: 'hsl(220 15% 45%)' }}>Projects</h4>
                 </div>
                 <div className="space-y-3">
-                  {getClientProjects(client.company).map((project) => (
+                  {clientProjects[client.company].map((project) => (
                     <div key={project.id} className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(220 20% 92%)' }}>
                       <div>
                         <p className="font-medium" style={{ fontFamily: 'var(--font-body)', color: 'hsl(220 25% 20%)' }}>{project.roles || 'Unspecified Role'}</p>
