@@ -1,7 +1,6 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, BarChart3, Archive, Globe, MapPin, Building2, AlertTriangle, LogOut, Users, Cloud, HardDrive } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth';
+import { LayoutDashboard, BarChart3, Archive, Globe, MapPin, Building2, AlertTriangle, Cloud, HardDrive } from 'lucide-react';
 import { isUsingLocalStorage } from '@/lib/supabaseStorage';
 
 const navigation = [
@@ -16,13 +15,6 @@ const navigation = [
 
 export function Sidebar() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
 
   return (
     <div className="flex h-full w-72 flex-col" style={{ background: 'linear-gradient(180deg, hsl(220 25% 12%) 0%, hsl(220 30% 8%) 100%)' }}>
@@ -50,34 +42,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {/* User section */}
-      <div className="mx-4 mb-2 p-4 rounded-xl" style={{ background: 'hsl(220 25% 16%)', border: '1px solid hsl(220 20% 20%)' }}>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, hsl(220 60% 50%) 0%, hsl(220 55% 40%) 100%)' }}>
-            <Users className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: 'hsl(40 20% 90%)' }}>
-              {user?.name || user?.email?.split('@')[0] || 'User'}
-            </p>
-            <p className="text-xs truncate" style={{ color: 'hsl(220 15% 50%)' }}>
-              {user?.email}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm transition-colors"
-          style={{
-            background: 'hsl(220 20% 20%)',
-            color: 'hsl(220 15% 65%)',
-          }}
-        >
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </button>
-      </div>
 
       <div className="mx-4 mb-4 p-3 rounded-xl text-center flex items-center justify-center gap-2"
         style={{
